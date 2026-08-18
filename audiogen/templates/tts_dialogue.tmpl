@@ -1,0 +1,89 @@
+<<define "tts_dialogue.curl">>
+<<.CurlPreamble>>REF0=$(base64 < speaker0.wav | tr -d '\n')
+REF1=$(base64 < speaker1.wav | tr -d '\n')
+
+curl -X POST "<<.Endpoint>>" \
+  -H "Authorization: Bearer <<.CurlAuth>>" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model\": \"<<.Model>>\",
+    \"speakers\": [
+      {\"ref_audio\": \"data:audio/wav;base64,$REF0\", \"ref_text\": \"Hello everyone, welcome to today's show.\"},
+      {\"ref_audio\": \"data:audio/wav;base64,$REF1\", \"ref_text\": \"Thanks, today we are talking about artificial intelligence.\"}
+    ],
+    \"turns\": [
+      {\"speaker\": 0, \"text\": \"Welcome to today's podcast.\"},
+      {\"speaker\": 1, \"text\": \"Thanks for having me, I am glad to talk about this.\"}
+    ]
+  }" \
+  --output dialogue.wav
+<<end>>
+
+<<define "tts_dialogue.python">>
+import base64
+<<if .PyImportOS>>import os
+<<end>>from pathlib import Path
+
+import httpx
+
+API_KEY = <<.PyAuth>>
+
+
+def data_url(path: str) -> str:
+    b64 = base64.b64encode(Path(path).read_bytes()).decode()
+    return f"data:audio/wav;base64,{b64}"
+
+
+resp = httpx.post(
+    "<<.Endpoint>>",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    json={
+        "model": "<<.Model>>",
+        "speakers": [
+            {"ref_audio": data_url("speaker0.wav"), "ref_text": "Hello everyone, welcome to today's show."},
+            {"ref_audio": data_url("speaker1.wav"), "ref_text": "Thanks, today we are talking about artificial intelligence."},
+        ],
+        "turns": [
+            {"speaker": 0, "text": "Welcome to today's podcast."},
+            {"speaker": 1, "text": "Thanks for having me, I am glad to talk about this."},
+        ],
+    },
+    timeout=300.0,
+)
+resp.raise_for_status()
+Path("dialogue.wav").write_bytes(resp.content)
+<<end>>
+
+<<define "tts_dialogue.typescript">>
+import { readFile, writeFile } from "node:fs/promises";
+
+const apiKey = <<.TSAuth>>;
+
+function dataUrl(buf: Buffer): string {
+  return `data:audio/wav;base64,${buf.toString("base64")}`;
+}
+
+const [s0, s1] = await Promise.all([readFile("speaker0.wav"), readFile("speaker1.wav")]);
+
+const resp = await fetch("<<.Endpoint>>", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "<<.Model>>",
+    speakers: [
+      { ref_audio: dataUrl(s0), ref_text: "Hello everyone, welcome to today's show." },
+      { ref_audio: dataUrl(s1), ref_text: "Thanks, today we are talking about artificial intelligence." },
+    ],
+    turns: [
+      { speaker: 0, text: "Welcome to today's podcast." },
+      { speaker: 1, text: "Thanks for having me, I am glad to talk about this." },
+    ],
+  }),
+});
+if (!resp.ok) throw new Error(await resp.text());
+
+await writeFile("dialogue.wav", Buffer.from(await resp.arrayBuffer()));
+<<end>>

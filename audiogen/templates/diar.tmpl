@@ -1,0 +1,44 @@
+<<define "diar.curl">>
+<<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
+  -H "Authorization: Bearer <<.CurlAuth>>" \
+  -F "model=<<.Model>>" \
+  -F "file=@speech.wav"
+<<end>>
+
+<<define "diar.python">>
+<<if .PyImportOS>>import os
+
+<<end>>import httpx
+
+API_KEY = <<.PyAuth>>
+
+resp = httpx.post(
+    "<<.Endpoint>>",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    data={"model": "<<.Model>>"},
+    files={"file": ("speech.wav", open("speech.wav", "rb"), "audio/wav")},
+    timeout=180.0,
+)
+resp.raise_for_status()
+print(resp.json())
+<<end>>
+
+<<define "diar.typescript">>
+import { readFile } from "node:fs/promises";
+
+const apiKey = <<.TSAuth>>;
+
+const fileBytes = await readFile("speech.wav");
+const form = new FormData();
+form.set("model", "<<.Model>>");
+form.set("file", new Blob([fileBytes], { type: "audio/wav" }), "speech.wav");
+
+const resp = await fetch("<<.Endpoint>>", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${apiKey}` },
+  body: form,
+});
+if (!resp.ok) throw new Error(await resp.text());
+
+console.log(await resp.json());
+<<end>>
