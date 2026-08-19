@@ -1,5 +1,10 @@
 generated/
+dist/
 __pycache__/
 *.pyc
 node_modules/
 audio.csv
+py_test/
+ts_test/
+*.wav
+*.mp3

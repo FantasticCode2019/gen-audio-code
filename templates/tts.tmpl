@@ -4,7 +4,8 @@
   -H "Content-Type: application/json" \
   -d '{
     "model": "<<.Model>>",
-    "input": "Hello, this is a speech synthesis sample."
+    "input": "Hello, this is a speech synthesis sample.",
+    "voice": "serena"
   }' \
   --output speech.wav
 <<end>>
@@ -24,6 +25,7 @@ client = OpenAI(
 with client.audio.speech.with_streaming_response.create(
     model="<<.Model>>",
     input="Hello, this is a speech synthesis sample.",
+    voice="serena",
 ) as response:
     response.stream_to_file("speech.wav")
 <<end>>
@@ -42,7 +44,8 @@ const client = new OpenAI({
 const response = await client.audio.speech.create({
   model: "<<.Model>>",
   input: "Hello, this is a speech synthesis sample.",
-} as OpenAI.Audio.SpeechCreateParams);
+  voice: "serena",
+});
 
 await writeFile("speech.wav", Buffer.from(await response.arrayBuffer()));
 <<end>>

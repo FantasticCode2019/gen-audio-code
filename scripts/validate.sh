@@ -12,7 +12,7 @@ cd "$ROOT"
 
 echo "==> Rendering snippets into $OUT"
 rm -rf "$OUT"
-go run ./cmd/audiogen -all-models -lang all -url "$URL" -out "$OUT" >/dev/null || exit 1
+node src/cli.ts -all-models -lang all -url "$URL" -out "$OUT" >/dev/null || exit 1
 echo "    $(find "$OUT" -type f | wc -l | tr -d ' ') files"
 
 status=0

@@ -1,0 +1,15 @@
+// Emits dist/ for consumers that import audiogen as a package: Node only strips
+// types from your own files, never from anything inside node_modules.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src"]
+}

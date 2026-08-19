@@ -1,0 +1,35 @@
+{
+  "name": "audiogen",
+  "version": "1.0.0",
+  "description": "Generates ready-to-run client snippets (curl, Python, TypeScript) for every audio capability exposed by the Olares router.",
+  "license": "ISC",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "audiogen": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "audiogen": "node src/cli.ts",
+    "check": "tsc",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "validate": "bash scripts/validate.sh",
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}

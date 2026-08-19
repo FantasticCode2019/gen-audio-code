@@ -1,12 +1,13 @@
-<<define "enhance.curl">>
+<<define "tts_clone.curl">>
 <<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
   -H "Authorization: Bearer <<.CurlAuth>>" \
   -F "model=<<.Model>>" \
-  -F "file=@noisy.wav" \
-  --output enhanced.wav
+  -F "file=@audio.mp3" \
+  -F "input=Hello, this is a voice cloning sample." \
+  --output clone.wav
 <<end>>
 
-<<define "enhance.python">>
+<<define "tts_clone.python">>
 <<if .PyImportOS>>import os
 <<end>>from pathlib import Path
 
@@ -17,23 +18,27 @@ API_KEY = <<.PyAuth>>
 resp = httpx.post(
     "<<.Endpoint>>",
     headers={"Authorization": f"Bearer {API_KEY}"},
-    data={"model": "<<.Model>>"},
-    files={"file": ("noisy.wav", open("noisy.wav", "rb"), "audio/wav")},
+    data={
+        "model": "<<.Model>>",
+        "input": "Hello, this is a voice cloning sample.",
+    },
+    files={"file": ("audio.mp3", open("audio.mp3", "rb"), "audio/mpeg")},
     timeout=180.0,
 )
 resp.raise_for_status()
-Path("enhanced.wav").write_bytes(resp.content)
+Path("clone.wav").write_bytes(resp.content)
 <<end>>
 
-<<define "enhance.typescript">>
+<<define "tts_clone.typescript">>
 import { readFile, writeFile } from "node:fs/promises";
 
 const apiKey = <<.TSAuth>>;
 
-const fileBytes = await readFile("noisy.wav");
+const fileBytes = await readFile("audio.mp3");
 const form = new FormData();
 form.set("model", "<<.Model>>");
-form.set("file", new Blob([fileBytes], { type: "audio/wav" }), "noisy.wav");
+form.set("file", new Blob([fileBytes], { type: "audio/mpeg" }), "audio.mp3");
+form.set("input", "Hello, this is a voice cloning sample.");
 
 const resp = await fetch("<<.Endpoint>>", {
   method: "POST",
@@ -42,5 +47,5 @@ const resp = await fetch("<<.Endpoint>>", {
 });
 if (!resp.ok) throw new Error(await resp.text());
 
-await writeFile("enhanced.wav", Buffer.from(await resp.arrayBuffer()));
+await writeFile("clone.wav", Buffer.from(await resp.arrayBuffer()));
 <<end>>

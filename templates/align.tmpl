@@ -2,7 +2,7 @@
 <<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
   -H "Authorization: Bearer <<.CurlAuth>>" \
   -F "model=<<.Model>>" \
-  -F "file=@speech.wav" \
+  -F "file=@audio.mp3" \
   -F "text=The transcript to align with the audio."
 <<end>>
 
@@ -20,7 +20,7 @@ resp = httpx.post(
         "model": "<<.Model>>",
         "text": "The transcript to align with the audio.",
     },
-    files={"file": ("speech.wav", open("speech.wav", "rb"), "audio/wav")},
+    files={"file": ("audio.mp3", open("audio.mp3", "rb"), "audio/mpeg")},
     timeout=180.0,
 )
 resp.raise_for_status()
@@ -32,10 +32,10 @@ import { readFile } from "node:fs/promises";
 
 const apiKey = <<.TSAuth>>;
 
-const fileBytes = await readFile("speech.wav");
+const fileBytes = await readFile("audio.mp3");
 const form = new FormData();
 form.set("model", "<<.Model>>");
-form.set("file", new Blob([fileBytes], { type: "audio/wav" }), "speech.wav");
+form.set("file", new Blob([fileBytes], { type: "audio/mpeg" }), "audio.mp3");
 form.set("text", "The transcript to align with the audio.");
 
 const resp = await fetch("<<.Endpoint>>", {

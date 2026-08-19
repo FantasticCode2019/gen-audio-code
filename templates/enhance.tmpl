@@ -1,14 +1,16 @@
-<<define "speaker_embed.curl">>
+<<define "enhance.curl">>
 <<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
   -H "Authorization: Bearer <<.CurlAuth>>" \
   -F "model=<<.Model>>" \
-  -F "file=@speaker.wav"
+  -F "file=@audio.mp3" \
+  --output enhanced.wav
 <<end>>
 
-<<define "speaker_embed.python">>
+<<define "enhance.python">>
 <<if .PyImportOS>>import os
+<<end>>from pathlib import Path
 
-<<end>>import httpx
+import httpx
 
 API_KEY = <<.PyAuth>>
 
@@ -16,22 +18,22 @@ resp = httpx.post(
     "<<.Endpoint>>",
     headers={"Authorization": f"Bearer {API_KEY}"},
     data={"model": "<<.Model>>"},
-    files={"file": ("speaker.wav", open("speaker.wav", "rb"), "audio/wav")},
+    files={"file": ("audio.mp3", open("audio.mp3", "rb"), "audio/mpeg")},
     timeout=180.0,
 )
 resp.raise_for_status()
-print(resp.json())
+Path("enhanced.wav").write_bytes(resp.content)
 <<end>>
 
-<<define "speaker_embed.typescript">>
-import { readFile } from "node:fs/promises";
+<<define "enhance.typescript">>
+import { readFile, writeFile } from "node:fs/promises";
 
 const apiKey = <<.TSAuth>>;
 
-const fileBytes = await readFile("speaker.wav");
+const fileBytes = await readFile("audio.mp3");
 const form = new FormData();
 form.set("model", "<<.Model>>");
-form.set("file", new Blob([fileBytes], { type: "audio/wav" }), "speaker.wav");
+form.set("file", new Blob([fileBytes], { type: "audio/mpeg" }), "audio.mp3");
 
 const resp = await fetch("<<.Endpoint>>", {
   method: "POST",
@@ -40,5 +42,5 @@ const resp = await fetch("<<.Endpoint>>", {
 });
 if (!resp.ok) throw new Error(await resp.text());
 
-console.log(await resp.json());
+await writeFile("enhanced.wav", Buffer.from(await resp.arrayBuffer()));
 <<end>>
