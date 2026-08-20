@@ -1,18 +1,20 @@
-<<define "diar_stream.curl">>
-<<.CurlPreamble>># Send 16 kHz s16le mono PCM frames over the socket, then {"type": "stop"}.
-websocat -H="Authorization: Bearer <<.CurlAuth>>" \
-  "<<.Endpoint>>?model=<<.Model>>"
-<<end>>
+import type { SnippetSet } from "./types.ts";
 
-<<define "diar_stream.python">>
+export const diarStream: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}# Send 16 kHz s16le mono PCM frames over the socket, then {"type": "stop"}.
+websocat -H="Authorization: Bearer ${d.curlAuth}" \\
+  "${d.endpoint}?model=${d.model}"
+`,
+
+  python: (d) => `
 import asyncio
 import json
-<<if .PyImportOS>>import os
-<<end>>
+${d.pyImportOS ? "import os\n" : ""}
 import websockets
 
-API_KEY = <<.PyAuth>>
-URL = "<<.Endpoint>>?model=<<.Model>>"
+API_KEY = ${d.pyAuth}
+URL = "${d.endpoint}?model=${d.model}"
 
 
 async def main() -> None:
@@ -29,16 +31,16 @@ async def main() -> None:
 
 
 asyncio.run(main())
-<<end>>
+`,
 
-<<define "diar_stream.typescript">>
+  typescript: (d) => `
 import { readFile } from "node:fs/promises";
 import WebSocket from "ws";
 
-const apiKey = <<.TSAuth>>;
+const apiKey = ${d.tsAuth};
 
-const ws = new WebSocket("<<.Endpoint>>?model=<<.Model>>", {
-  headers: { Authorization: `Bearer ${apiKey}` },
+const ws = new WebSocket("${d.endpoint}?model=${d.model}", {
+  headers: { Authorization: \`Bearer \${apiKey}\` },
 });
 
 ws.on("open", async () => {
@@ -53,4 +55,5 @@ ws.on("open", async () => {
 
 ws.on("message", (data) => console.log(String(data)));
 ws.on("error", (err) => console.error(err));
-<<end>>
+`,
+};

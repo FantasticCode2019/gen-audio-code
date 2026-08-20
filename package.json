@@ -14,8 +14,7 @@
     "audiogen": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    "templates"
+    "dist"
   ],
   "engines": {
     "node": ">=22.6"

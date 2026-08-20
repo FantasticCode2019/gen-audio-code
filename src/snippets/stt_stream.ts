@@ -1,23 +1,25 @@
-<<define "stt_stream.curl">>
-<<.CurlPreamble>># Protocol:
+import type { SnippetSet } from "./types.ts";
+
+export const sttStream: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}# Protocol:
 #   1. The server greets with {"type": "ready"}.
 #   2. Send the start message: {"type": "start"}
 #   3. Stream PCM binary frames: 16-bit little-endian, mono, 16 kHz.
 #   4. Finish with {"type": "stop"} (done / finish are accepted too).
 # The server replies with ready / error / closed events plus transcript messages.
-websocat -H="Authorization: Bearer <<.CurlAuth>>" \
-  "<<.Endpoint>>?model=<<.Model>>"
-<<end>>
+websocat -H="Authorization: Bearer ${d.curlAuth}" \\
+  "${d.endpoint}?model=${d.model}"
+`,
 
-<<define "stt_stream.python">>
+  python: (d) => `
 import asyncio
 import json
-<<if .PyImportOS>>import os
-<<end>>
+${d.pyImportOS ? "import os\n" : ""}
 import websockets
 
-API_KEY = <<.PyAuth>>
-URL = "<<.Endpoint>>?model=<<.Model>>"
+API_KEY = ${d.pyAuth}
+URL = "${d.endpoint}?model=${d.model}"
 
 SAMPLE_RATE = 16000  # the rate the server assumes when start omits it
 # 16-bit little-endian mono is 2 bytes per sample, so this is a 100 ms frame.
@@ -49,20 +51,20 @@ async def main() -> None:
 
 
 asyncio.run(main())
-<<end>>
+`,
 
-<<define "stt_stream.typescript">>
+  typescript: (d) => `
 import { readFile } from "node:fs/promises";
 import WebSocket from "ws";
 
-const apiKey = <<.TSAuth>>;
+const apiKey = ${d.tsAuth};
 
 const SAMPLE_RATE = 16000; // the rate the server assumes when start omits it
 // 16-bit little-endian mono is 2 bytes per sample, so this is a 100 ms frame.
 const FRAME_BYTES = (SAMPLE_RATE * 2) / 10;
 
-const ws = new WebSocket("<<.Endpoint>>?model=<<.Model>>", {
-  headers: { Authorization: `Bearer ${apiKey}` },
+const ws = new WebSocket("${d.endpoint}?model=${d.model}", {
+  headers: { Authorization: \`Bearer \${apiKey}\` },
 });
 
 async function stream(): Promise<void> {
@@ -92,4 +94,5 @@ ws.on("message", (data) => {
 });
 
 ws.on("error", (err) => console.error(err));
-<<end>>
+`,
+};

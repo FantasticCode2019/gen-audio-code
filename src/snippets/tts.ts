@@ -1,51 +1,53 @@
-<<define "tts.curl">>
-<<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
-  -H "Authorization: Bearer <<.CurlAuth>>" \
-  -H "Content-Type: application/json" \
+import type { SnippetSet } from "./types.ts";
+
+export const tts: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}curl -X POST "${d.endpoint}" \\
+  -H "Authorization: Bearer ${d.curlAuth}" \\
+  -H "Content-Type: application/json" \\
   -d '{
-    "model": "<<.Model>>",
+    "model": "${d.model}",
     "input": "Hello, this is a speech synthesis sample.",
     "voice": "serena"
-  }' \
+  }' \\
   --output speech.wav
-<<end>>
+`,
 
-<<define "tts.python">>
-<<if .PyImportOS>>import os
+  python: (d) => `
+${d.pyImportOS ? "import os\n\n" : ""}from openai import OpenAI
 
-<<end>>from openai import OpenAI
-
-API_KEY = <<.PyAuth>>
+API_KEY = ${d.pyAuth}
 
 client = OpenAI(
-    base_url="<<.BaseURL>>",
+    base_url="${d.baseURL}",
     api_key=API_KEY,
 )
 
 with client.audio.speech.with_streaming_response.create(
-    model="<<.Model>>",
+    model="${d.model}",
     input="Hello, this is a speech synthesis sample.",
     voice="serena",
 ) as response:
     response.stream_to_file("speech.wav")
-<<end>>
+`,
 
-<<define "tts.typescript">>
+  typescript: (d) => `
 import { writeFile } from "node:fs/promises";
 import OpenAI from "openai";
 
-const apiKey = <<.TSAuth>>;
+const apiKey = ${d.tsAuth};
 
 const client = new OpenAI({
-  baseURL: "<<.BaseURL>>",
+  baseURL: "${d.baseURL}",
   apiKey,
 });
 
 const response = await client.audio.speech.create({
-  model: "<<.Model>>",
+  model: "${d.model}",
   input: "Hello, this is a speech synthesis sample.",
   voice: "serena",
 });
 
 await writeFile("speech.wav", Buffer.from(await response.arrayBuffer()));
-<<end>>
+`,
+};

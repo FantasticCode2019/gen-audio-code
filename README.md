@@ -5,9 +5,9 @@ audio capability exposed by the Olares router, driven by a registry of models
 transcribed from `audio.csv`.
 
 Written in TypeScript and run directly by Node.js, which strips the types, so
-working on it needs no build step and the library has no runtime dependency.
-Node 22.6+ is required (24+ recommended, where running `.ts` files needs no
-flag).
+working on it needs no build step. The snippets are TypeScript too, so the
+library reads nothing at runtime and has no dependencies. Node 22.6+ is
+required (24+ recommended, where running `.ts` files needs no flag).
 
 ## Layout
 
@@ -17,10 +17,12 @@ src/                             library
   capability.ts                  capabilities and their endpoints
   language.ts                    output languages and their aliases
   registry.ts                    model -> capability catalogue
-  template.ts                    template loading and rendering
   index.ts                       public API
   cli.ts                         CLI test harness
-templates/*.tmpl                 one file per capability, 3 languages each
+  snippets/                      the snippet bodies
+    <capability>.ts              one file per capability, 3 languages each
+    types.ts                     SnippetData, the values a snippet interpolates
+    index.ts                     capability -> snippets, and the renderer
 test/*.test.ts                   unit tests
 scripts/validate.sh              renders everything and syntax-checks it
 scripts/setup-python.sh          Python environment for running the snippets
@@ -120,22 +122,36 @@ instead, so nothing secret ends up in generated files:
 | `sound_fx` | `/v1/audio/speech` | HTTP JSON |
 | `enhance` | `/v1/audio/enhance` | HTTP multipart |
 
-### Templates
+### Snippets
 
-The snippets live in `templates/*.tmpl` rather than in TypeScript string
-literals: they are full of backticks and `${...}`, which a template literal
-would have to escape everywhere. Each file defines one template per language
-using `<<` `>>` delimiters, because the generated code already contains plenty
-of braces:
+Each capability owns one file under `src/snippets/`, holding a function per
+language that interpolates a `SnippetData` into a template literal:
 
+```ts
+export const enhance: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}curl -X POST "${d.endpoint}" \\
+  -H "Authorization: Bearer ${d.curlAuth}" \\
+  ...
+`,
+  python: (d) => `...`,
+  typescript: (d) => `...`,
+};
 ```
-<<define "tts.python">>          a named template, looked up as "<capability>.<language>"
-<<if .PyImportOS>> ... <<end>>   emitted only when the field is truthy
-<<.Model>>                       interpolate a field
-```
 
-Those three actions are all the templates use, so `src/template.ts` implements
-exactly that subset instead of depending on a template engine.
+`snippets` in `src/snippets/index.ts` is typed `Record<Capability, SnippetSet>`,
+so a new capability will not compile until all three snippets exist. Bodies
+start on the line after the opening backtick and the renderer trims the edges,
+which is why every snippet ends with exactly one newline.
+
+Two things to know when editing a snippet body, because it is a template
+literal rather than a data file:
+
+- Escape what the literal would otherwise eat: `\` becomes `\\`, a backtick
+  becomes ``\` `` and `${` becomes `\${`. The first one is the dangerous one —
+  a lone trailing backslash silently swallows the newline after it, which is
+  what `test/snippets.test.ts` watches for. The other two are type errors.
+- Interpolate through `d`, whose fields are checked by the compiler.
 
 ## CLI
 
@@ -364,4 +380,4 @@ have no TypeScript equivalent changed:
 | `req.Endpoint(cap)` | `endpoint(cap, req)` |
 | `m.Supports(cap)` | `supports(m, cap)` |
 | `LookupModel(name) (Model, bool)` | `lookupModel(name): Model \| undefined` |
-| `text/template` with `<< >>` | the same templates, rendered by `src/template.ts` |
+| `templates/*.tmpl` + `text/template` | template literals in `src/snippets/`, checked by the compiler |

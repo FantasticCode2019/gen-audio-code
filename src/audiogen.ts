@@ -4,7 +4,8 @@ import { type Capability, endpointSpec } from "./capability.ts";
 import { LangCurl, LangPython, LangTypeScript, Languages, type Language } from "./language.ts";
 import { CapAlign, CapDiar, CapDiarStream, CapEnhance, CapSTT, CapSTTStream, CapSoundFX, CapSpeakerEmbed, CapTTS, CapTTSClone, CapTTSDialogue, CapVAD } from "./capability.ts";
 import { lookupModel } from "./registry.ts";
-import { render } from "./template.ts";
+import { renderSnippet } from "./snippets/index.ts";
+import type { SnippetData } from "./snippets/types.ts";
 
 /**
  * APIKeyEnvVar is the environment variable the generated snippets read from
@@ -36,35 +37,6 @@ export interface CapabilitySnippet {
   Language: Language;
   Code: string;
 }
-
-/** templateData is the flattened view handed to the snippet templates. */
-type templateData = {
-  Model: string;
-
-  /** BaseURL is the normalised HTTP base, e.g. "https://host/v1". */
-  BaseURL: string;
-  /**
-   * Endpoint is the absolute URL for the capability. For WebSocket
-   * capabilities this already uses the ws:// or wss:// scheme.
-   */
-  Endpoint: string;
-
-  /**
-   * CurlAuth renders inside a curl header: either the literal key or a shell
-   * variable reference.
-   */
-  CurlAuth: string;
-  /** PyAuth and TSAuth are complete expressions assigned to a variable. */
-  PyAuth: string;
-  TSAuth: string;
-  /**
-   * PyImportOS tells Python templates to pull in "os", which they place in
-   * their own stdlib import group so the result stays PEP 8 clean.
-   */
-  PyImportOS: boolean;
-  /** CurlPreamble exports the key variable so the snippet runs as-is. */
-  CurlPreamble: string;
-};
 
 function normalizeBaseURL(raw: string): string {
   let s = raw.trim();
@@ -104,7 +76,7 @@ function toWebSocket(httpURL: string): string {
   return "ws://" + httpURL.slice("http://".length);
 }
 
-function buildTemplateData(capability: Capability, req: Request): templateData {
+function buildSnippetData(capability: Capability, req: Request): SnippetData {
   const spec = endpointSpec(capability);
   if (!spec) throw new Error(`no endpoint registered for capability ${JSON.stringify(capability)}`);
   const base = normalizeBaseURL(req.URL);
@@ -112,31 +84,26 @@ function buildTemplateData(capability: Capability, req: Request): templateData {
   if (model === "") throw new Error("model is required");
 
   const full = spec.webSocket ? toWebSocket(base + spec.path) : base + spec.path;
-
-  const data: templateData = {
-    Model: model,
-    BaseURL: base,
-    Endpoint: full,
-    CurlAuth: "",
-    PyAuth: "",
-    TSAuth: "",
-    PyImportOS: false,
-    CurlPreamble: "",
-  };
-
   const key = (req.APIKey ?? "").trim();
-  if (key !== "") {
-    data.CurlAuth = key;
-    data.PyAuth = pyQuote(key);
-    data.TSAuth = tsQuote(key);
-  } else {
-    data.CurlAuth = "$" + APIKeyEnvVar;
-    data.CurlPreamble = `export ${APIKeyEnvVar}="sk-your-api-key"\n\n`;
-    data.PyAuth = `os.environ[${pyQuote(APIKeyEnvVar)}]`;
-    data.PyImportOS = true;
-    data.TSAuth = `process.env.${APIKeyEnvVar}!`;
-  }
-  return data;
+
+  const auth: Pick<SnippetData, "curlAuth" | "curlPreamble" | "pyAuth" | "pyImportOS" | "tsAuth"> =
+    key !== ""
+      ? {
+          curlAuth: key,
+          curlPreamble: "",
+          pyAuth: pyQuote(key),
+          pyImportOS: false,
+          tsAuth: tsQuote(key),
+        }
+      : {
+          curlAuth: "$" + APIKeyEnvVar,
+          curlPreamble: `export ${APIKeyEnvVar}="sk-your-api-key"\n\n`,
+          pyAuth: `os.environ[${pyQuote(APIKeyEnvVar)}]`,
+          pyImportOS: true,
+          tsAuth: `process.env.${APIKeyEnvVar}!`,
+        };
+
+  return { model, baseURL: base, endpoint: full, ...auth };
 }
 
 /**
@@ -144,7 +111,7 @@ function buildTemplateData(capability: Capability, req: Request): templateData {
  * capability, which is useful for tests and for showing the target in a UI.
  */
 export function endpoint(capability: Capability, req: Request): string {
-  return buildTemplateData(capability, req).Endpoint;
+  return buildSnippetData(capability, req).endpoint;
 }
 
 /**
@@ -159,13 +126,13 @@ export function generate(capability: Capability, req: Request): string {
   if (lang !== LangCurl && lang !== LangPython && lang !== LangTypeScript) {
     throw new Error(`unknown language ${JSON.stringify(req.Lang)}`);
   }
-  let data: templateData;
+  let data: SnippetData;
   try {
-    data = buildTemplateData(capability, req);
+    data = buildSnippetData(capability, req);
   } catch (err) {
     throw new Error(`${capability}/${lang}: ${errorMessage(err)}`);
   }
-  return render(`${capability}.${lang}`, data);
+  return renderSnippet(capability, lang, data);
 }
 
 /** generateAll renders every language for one capability, keyed by language. */

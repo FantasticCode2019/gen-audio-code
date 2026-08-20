@@ -1,25 +1,27 @@
-<<define "tts_clone.curl">>
-<<.CurlPreamble>>curl -X POST "<<.Endpoint>>" \
-  -H "Authorization: Bearer <<.CurlAuth>>" \
-  -F "model=<<.Model>>" \
-  -F "file=@audio.mp3" \
-  -F "input=Hello, this is a voice cloning sample." \
-  --output clone.wav
-<<end>>
+import type { SnippetSet } from "./types.ts";
 
-<<define "tts_clone.python">>
-<<if .PyImportOS>>import os
-<<end>>from pathlib import Path
+export const ttsClone: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}curl -X POST "${d.endpoint}" \\
+  -H "Authorization: Bearer ${d.curlAuth}" \\
+  -F "model=${d.model}" \\
+  -F "file=@audio.mp3" \\
+  -F "input=Hello, this is a voice cloning sample." \\
+  --output clone.wav
+`,
+
+  python: (d) => `
+${d.pyImportOS ? "import os\n" : ""}from pathlib import Path
 
 import httpx
 
-API_KEY = <<.PyAuth>>
+API_KEY = ${d.pyAuth}
 
 resp = httpx.post(
-    "<<.Endpoint>>",
+    "${d.endpoint}",
     headers={"Authorization": f"Bearer {API_KEY}"},
     data={
-        "model": "<<.Model>>",
+        "model": "${d.model}",
         "input": "Hello, this is a voice cloning sample.",
     },
     files={"file": ("audio.mp3", open("audio.mp3", "rb"), "audio/mpeg")},
@@ -27,25 +29,26 @@ resp = httpx.post(
 )
 resp.raise_for_status()
 Path("clone.wav").write_bytes(resp.content)
-<<end>>
+`,
 
-<<define "tts_clone.typescript">>
+  typescript: (d) => `
 import { readFile, writeFile } from "node:fs/promises";
 
-const apiKey = <<.TSAuth>>;
+const apiKey = ${d.tsAuth};
 
 const fileBytes = await readFile("audio.mp3");
 const form = new FormData();
-form.set("model", "<<.Model>>");
+form.set("model", "${d.model}");
 form.set("file", new Blob([fileBytes], { type: "audio/mpeg" }), "audio.mp3");
 form.set("input", "Hello, this is a voice cloning sample.");
 
-const resp = await fetch("<<.Endpoint>>", {
+const resp = await fetch("${d.endpoint}", {
   method: "POST",
-  headers: { Authorization: `Bearer ${apiKey}` },
+  headers: { Authorization: \`Bearer \${apiKey}\` },
   body: form,
 });
 if (!resp.ok) throw new Error(await resp.text());
 
 await writeFile("clone.wav", Buffer.from(await resp.arrayBuffer()));
-<<end>>
+`,
+};

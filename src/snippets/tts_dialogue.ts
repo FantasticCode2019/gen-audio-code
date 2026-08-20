@@ -1,31 +1,33 @@
-<<define "tts_dialogue.curl">>
-<<.CurlPreamble>>REF=$(base64 < audio.mp3 | tr -d '\n')
+import type { SnippetSet } from "./types.ts";
 
-curl -X POST "<<.Endpoint>>" \
-  -H "Authorization: Bearer <<.CurlAuth>>" \
-  -H "Content-Type: application/json" \
+export const ttsDialogue: SnippetSet = {
+  curl: (d) => `
+${d.curlPreamble}REF=$(base64 < audio.mp3 | tr -d '\\n')
+
+curl -X POST "${d.endpoint}" \\
+  -H "Authorization: Bearer ${d.curlAuth}" \\
+  -H "Content-Type: application/json" \\
   -d "{
-    \"model\": \"<<.Model>>\",
-    \"speakers\": [
-      {\"ref_audio\": \"data:audio/mpeg;base64,$REF\", \"ref_text\": \"Hello everyone, welcome to today's show.\"},
-      {\"ref_audio\": \"data:audio/mpeg;base64,$REF\", \"ref_text\": \"Thanks, today we are talking about artificial intelligence.\"}
+    \\"model\\": \\"${d.model}\\",
+    \\"speakers\\": [
+      {\\"ref_audio\\": \\"data:audio/mpeg;base64,$REF\\", \\"ref_text\\": \\"Hello everyone, welcome to today's show.\\"},
+      {\\"ref_audio\\": \\"data:audio/mpeg;base64,$REF\\", \\"ref_text\\": \\"Thanks, today we are talking about artificial intelligence.\\"}
     ],
-    \"turns\": [
-      {\"speaker\": 0, \"text\": \"Welcome to today's podcast.\"},
-      {\"speaker\": 1, \"text\": \"Thanks for having me, I am glad to talk about this.\"}
+    \\"turns\\": [
+      {\\"speaker\\": 0, \\"text\\": \\"Welcome to today's podcast.\\"},
+      {\\"speaker\\": 1, \\"text\\": \\"Thanks for having me, I am glad to talk about this.\\"}
     ]
-  }" \
+  }" \\
   --output dialogue.wav
-<<end>>
+`,
 
-<<define "tts_dialogue.python">>
+  python: (d) => `
 import base64
-<<if .PyImportOS>>import os
-<<end>>from pathlib import Path
+${d.pyImportOS ? "import os\n" : ""}from pathlib import Path
 
 import httpx
 
-API_KEY = <<.PyAuth>>
+API_KEY = ${d.pyAuth}
 
 
 def data_url(path: str) -> str:
@@ -34,10 +36,10 @@ def data_url(path: str) -> str:
 
 
 resp = httpx.post(
-    "<<.Endpoint>>",
+    "${d.endpoint}",
     headers={"Authorization": f"Bearer {API_KEY}"},
     json={
-        "model": "<<.Model>>",
+        "model": "${d.model}",
         "speakers": [
             {"ref_audio": data_url("audio.mp3"), "ref_text": "Hello everyone, welcome to today's show."},
             {"ref_audio": data_url("audio.mp3"), "ref_text": "Thanks, today we are talking about artificial intelligence."},
@@ -51,27 +53,27 @@ resp = httpx.post(
 )
 resp.raise_for_status()
 Path("dialogue.wav").write_bytes(resp.content)
-<<end>>
+`,
 
-<<define "tts_dialogue.typescript">>
+  typescript: (d) => `
 import { readFile, writeFile } from "node:fs/promises";
 
-const apiKey = <<.TSAuth>>;
+const apiKey = ${d.tsAuth};
 
 function dataUrl(buf: Buffer): string {
-  return `data:audio/mpeg;base64,${buf.toString("base64")}`;
+  return \`data:audio/mpeg;base64,\${buf.toString("base64")}\`;
 }
 
 const audio = await readFile("audio.mp3");
 
-const resp = await fetch("<<.Endpoint>>", {
+const resp = await fetch("${d.endpoint}", {
   method: "POST",
   headers: {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: \`Bearer \${apiKey}\`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    model: "<<.Model>>",
+    model: "${d.model}",
     speakers: [
       { ref_audio: dataUrl(audio), ref_text: "Hello everyone, welcome to today's show." },
       { ref_audio: dataUrl(audio), ref_text: "Thanks, today we are talking about artificial intelligence." },
@@ -85,4 +87,5 @@ const resp = await fetch("<<.Endpoint>>", {
 if (!resp.ok) throw new Error(await resp.text());
 
 await writeFile("dialogue.wav", Buffer.from(await resp.arrayBuffer()));
-<<end>>
+`,
+};
