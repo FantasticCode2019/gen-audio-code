@@ -27,7 +27,12 @@ ${headersAssign}    async with websockets.connect(${connectArgs}) as ws:
                 await ws.send(chunk)
         await ws.send(json.dumps({"type": "stop"}))
         async for message in ws:
-            print(message)
+            event = json.loads(message)
+            if event.get("type") == "error":
+                raise RuntimeError(event)
+            print(event)
+            if event.get("type") == "closed":
+                break
 
 
 asyncio.run(main())
