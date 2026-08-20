@@ -64,6 +64,8 @@ function generateDiarStream(req: Request): string
 function generateSpeakerEmbed(req: Request): string
 function generateSoundFX(req: Request): string
 function generateEnhance(req: Request): string
+function generateOCR(req: Request): string
+function generateTranslate(req: Request): string
 ```
 
 Plus the helpers that work off the registry:
@@ -96,14 +98,22 @@ interchangeable — the `Cap*` and `Lang*` constants exist for autocompletion.
 ### API key handling
 
 `APIKey` is optional. When you supply one it is inlined into the snippet. When
-you leave it empty the snippet reads `OLARES_API_KEY` from the environment
-instead, so nothing secret ends up in generated files:
+you leave it empty the snippet sends no `Authorization` header at all, which is
+how callers inside Olares reach the router: there the gateway identifies the app
+with `x-caller-appid`. Such a snippet is rejected from outside the cluster with
+`401 missing_credentials`, so a key is what you want for local testing.
 
 | | with `APIKey` | without `APIKey` |
 |---|---|---|
-| curl | `-H "Authorization: Bearer sk-..."` | `export OLARES_API_KEY=...` + `Bearer $OLARES_API_KEY` |
-| Python | `API_KEY = "sk-..."` | `import os` + `API_KEY = os.environ["OLARES_API_KEY"]` |
-| TypeScript | `const apiKey = "sk-...";` | `const apiKey = process.env.OLARES_API_KEY!;` |
+| curl | `-H "Authorization: Bearer sk-..."` | header line dropped |
+| Python | `API_KEY = "sk-..."` + `headers={...}` | both dropped |
+| TypeScript | `const apiKey = "sk-...";` + `headers: {...}` | both dropped |
+
+The OpenAI SDK snippets (`stt` and `tts` in Python and TypeScript) are the
+exception: their clients refuse to be built without a key and add a header of
+their own, so the keyless variants pass an unused placeholder and switch the
+header off explicitly, with `extra_headers={"Authorization": Omit()}` in Python
+and `defaultHeaders: { Authorization: null }` in TypeScript.
 
 ### Capabilities and endpoints
 
@@ -121,6 +131,15 @@ instead, so nothing secret ends up in generated files:
 | `speaker_embed` | `/v1/audio/embeddings` | HTTP multipart |
 | `sound_fx` | `/v1/audio/speech` | HTTP JSON |
 | `enhance` | `/v1/audio/enhance` | HTTP multipart |
+| `ocr` | `/v1/ocr` | HTTP multipart |
+| `translate` | `/v1/translate` | HTTP JSON |
+
+`ocr` and `translate` are the non-audio capabilities. `ocr` is also the only
+asynchronous one: the submission returns 200 with a task handle, and the text is
+fetched separately. Its snippets send only the required `file` field, leaving
+`format`, `pages` and `pdf_strategy` at their server defaults. `translate`
+requires `to` and `text`; its snippets also send `from`, which the server would
+otherwise detect.
 
 ### Snippets
 
@@ -182,7 +201,7 @@ node src/cli.ts -list-capabilities
 node src/cli.ts -list-models
 ```
 
-Expect 12 capabilities and 26 models.
+Expect 14 capabilities and 26 models.
 
 **2. Generate a single snippet.**
 
@@ -191,7 +210,7 @@ node src/cli.ts -model Olares/openai/whisper-large-v3 -lang curl
 ```
 
 Check: the URL ends in `/v1/audio/transcriptions`, the model name matches, and
-because no key was passed the snippet exports `OLARES_API_KEY` first.
+because no key was passed the snippet carries no `Authorization` header.
 
 **3. All three languages for one model.**
 
@@ -209,7 +228,7 @@ the OpenAI SDK against `/audio/speech`; `tts_clone` posts multipart to
 node src/cli.ts -model openai/tts-1 -lang python -api-key sk-test-123
 ```
 
-Check: `API_KEY = "sk-test-123"` and there is no `import os`.
+Check: `API_KEY = "sk-test-123"` is inlined and passed to the client.
 
 **5. Point at a different router.**
 

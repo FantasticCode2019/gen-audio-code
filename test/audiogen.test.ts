@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  APIKeyEnvVar,
   CapDiarStream,
   CapSTT,
   CapTTS,
@@ -110,29 +109,37 @@ test("snippets are English only", () => {
 
 test("a supplied API key is inlined", () => {
   const key = "sk-secret-value";
-  for (const lang of Languages) {
-    const code = generate(CapSTT, { URL: testURL, Model: "m", APIKey: key, Lang: lang });
-    assert.ok(code.includes(key), `${lang} snippet should inline the provided key`);
-    assert.ok(
-      !code.includes(APIKeyEnvVar),
-      `${lang} snippet should not reference ${APIKeyEnvVar} when a key is given`,
-    );
+  for (const capability of Capabilities) {
+    for (const lang of Languages) {
+      const code = generate(capability, { URL: testURL, Model: "m", APIKey: key, Lang: lang });
+      assert.ok(code.includes(key), `${capability}/${lang} should inline the provided key`);
+    }
   }
 });
 
-test("a missing API key falls back to the environment", () => {
-  for (const lang of Languages) {
-    const code = generate(CapSTT, { URL: testURL, Model: "m", Lang: lang });
-    assert.ok(
-      code.includes(APIKeyEnvVar),
-      `${lang} snippet should read ${APIKeyEnvVar} when no key is given`,
-    );
+// Callers inside Olares are identified by the gateway, so a keyless snippet has
+// to leave the header out rather than send an empty or placeholder credential.
+test("a missing API key removes the Authorization header", () => {
+  for (const capability of Capabilities) {
+    for (const lang of Languages) {
+      const code = generate(capability, { URL: testURL, Model: "m", Lang: lang });
+      const where = `${capability}/${lang}`;
+      assert.ok(!code.includes("Bearer"), `${where} still sends a bearer token`);
+
+      // The OpenAI clients build an Authorization header unless told not to, so
+      // their snippets name the header in order to switch it off.
+      const sdk = code.includes("from openai import") || code.includes('from "openai"');
+      if (sdk) {
+        assert.ok(
+          code.includes("Omit()") || code.includes("Authorization: null"),
+          `${where} does not opt out of the header the SDK would add`,
+        );
+        continue;
+      }
+      assert.ok(!code.includes("Authorization"), `${where} still sends an Authorization header`);
+      assert.ok(!/api_?key/i.test(code), `${where} still carries an API key`);
+    }
   }
-  // The Python snippet only imports os when it actually reads the environment.
-  const withEnv = generate(CapSTT, { URL: testURL, Model: "m", Lang: LangPython });
-  assert.ok(withEnv.includes("import os"), "python snippet should import os when reading the environment");
-  const withKey = generate(CapSTT, { URL: testURL, Model: "m", APIKey: "sk-x", Lang: LangPython });
-  assert.ok(!withKey.includes("import os"), "python snippet should not import os when the key is inlined");
 });
 
 test("quoting escapes special characters", () => {

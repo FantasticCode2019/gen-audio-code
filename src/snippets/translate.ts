@@ -1,36 +1,37 @@
 import type { SnippetSet } from "./types.ts";
 
-export const soundFX: SnippetSet = {
+// "to" and "text" are required; "from" may be dropped to let the server detect
+// the source language.
+export const translate: SnippetSet = {
   curl: (d) => `
 curl -X POST "${d.endpoint}" \\
 ${d.curlAuthHeader}  -H "Content-Type: application/json" \\
   -d '{
     "model": "${d.model}",
-    "input": "a short click of a wooden door latch"
-  }' \\
-  --output sfx.wav
+    "from": "en",
+    "to": "zh-Hans",
+    "text": "Hello World!"
+  }'
 `,
 
   python: (d) => `
-from pathlib import Path
-
 import httpx
 
 ${d.pyAuthAssign}resp = httpx.post(
     "${d.endpoint}",
 ${d.pyAuthHeader}    json={
         "model": "${d.model}",
-        "input": "a short click of a wooden door latch",
+        "from": "en",
+        "to": "zh-Hans",
+        "text": "Hello World!",
     },
     timeout=180.0,
 )
 resp.raise_for_status()
-Path("sfx.wav").write_bytes(resp.content)
+print(resp.json()["result"])
 `,
 
   typescript: (d) => `
-import { writeFile } from "node:fs/promises";
-
 ${d.tsAuthAssign}const resp = await fetch("${d.endpoint}", {
   method: "POST",
   headers: {
@@ -38,11 +39,14 @@ ${d.tsAuthHeaderEntry}    "Content-Type": "application/json",
   },
   body: JSON.stringify({
     model: "${d.model}",
-    input: "a short click of a wooden door latch",
+    from: "en",
+    to: "zh-Hans",
+    text: "Hello World!",
   }),
 });
 if (!resp.ok) throw new Error(await resp.text());
 
-await writeFile("sfx.wav", Buffer.from(await resp.arrayBuffer()));
+const { result } = await resp.json();
+console.log(result);
 `,
 };

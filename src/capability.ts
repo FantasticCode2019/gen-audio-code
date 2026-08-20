@@ -1,6 +1,6 @@
 // Capabilities and the endpoints that serve them.
 
-/** Capability is a single audio ability a model can serve. */
+/** Capability is a single ability a model can serve. */
 export type Capability =
   | "stt"
   | "stt_stream"
@@ -13,7 +13,9 @@ export type Capability =
   | "diar_stream"
   | "speaker_embed"
   | "sound_fx"
-  | "enhance";
+  | "enhance"
+  | "ocr"
+  | "translate";
 
 export const CapSTT = "stt" as const;
 export const CapSTTStream = "stt_stream" as const;
@@ -27,6 +29,8 @@ export const CapDiarStream = "diar_stream" as const;
 export const CapSpeakerEmbed = "speaker_embed" as const;
 export const CapSoundFX = "sound_fx" as const;
 export const CapEnhance = "enhance" as const;
+export const CapOCR = "ocr" as const;
+export const CapTranslate = "translate" as const;
 
 /** Capabilities lists every capability a generator exists for, in a stable order. */
 export const Capabilities: Capability[] = [
@@ -35,6 +39,7 @@ export const Capabilities: Capability[] = [
   CapAlign, CapVAD,
   CapDiar, CapDiarStream,
   CapSpeakerEmbed, CapSoundFX, CapEnhance,
+  CapOCR, CapTranslate,
 ];
 
 /** parseCapability resolves a user-supplied capability name. */
@@ -67,6 +72,8 @@ const endpoints = new Map<Capability, EndpointSpec>([
   [CapSpeakerEmbed, { path: "/audio/embeddings", webSocket: false }],
   [CapSoundFX, { path: "/audio/speech", webSocket: false }],
   [CapEnhance, { path: "/audio/enhance", webSocket: false }],
+  [CapOCR, { path: "/ocr", webSocket: false }],
+  [CapTranslate, { path: "/translate", webSocket: false }],
 ]);
 
 /** endpointSpec returns the endpoint registered for a capability, if any. */

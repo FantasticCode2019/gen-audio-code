@@ -8,3 +8,5 @@ py_test/
 ts_test/
 *.wav
 *.mp3
+*.png
+*.pcm

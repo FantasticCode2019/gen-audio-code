@@ -1,6 +1,5 @@
 // Public API of the audiogen library.
 export {
-  APIKeyEnvVar,
   Generators,
   endpoint,
   generate,
@@ -10,6 +9,7 @@ export {
   generateDiarStream,
   generateEnhance,
   generateForModel,
+  generateOCR,
   generateSTT,
   generateSTTStream,
   generateSoundFX,
@@ -17,6 +17,7 @@ export {
   generateTTS,
   generateTTSClone,
   generateTTSDialogue,
+  generateTranslate,
   generateVAD,
   generatorFor,
   type CapabilitySnippet,
@@ -29,6 +30,7 @@ export {
   CapDiar,
   CapDiarStream,
   CapEnhance,
+  CapOCR,
   CapSTT,
   CapSTTStream,
   CapSoundFX,
@@ -36,6 +38,7 @@ export {
   CapTTS,
   CapTTSClone,
   CapTTSDialogue,
+  CapTranslate,
   CapVAD,
   endpointSpec,
   parseCapability,

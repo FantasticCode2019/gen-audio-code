@@ -1,42 +1,48 @@
 import type { SnippetSet } from "./types.ts";
 
+// The OpenAI clients refuse to be built without a key and add an Authorization
+// header of their own, so dropping the header takes an explicit opt-out rather
+// than an empty value.
 export const stt: SnippetSet = {
   curl: (d) => `
-${d.curlPreamble}curl -X POST "${d.endpoint}" \\
-  -H "Authorization: Bearer ${d.curlAuth}" \\
-  -F "model=${d.model}" \\
+curl -X POST "${d.endpoint}" \\
+${d.curlAuthHeader}  -F "model=${d.model}" \\
   -F "file=@audio.mp3"
 `,
 
-  python: (d) => `
-${d.pyImportOS ? "import os\n\n" : ""}from openai import OpenAI
+  python: (d) => {
+    const imports = d.hasKey ? "from openai import OpenAI" : "from openai import Omit, OpenAI";
+    const keyArg = d.hasKey ? "api_key=API_KEY," : 'api_key="omitted",  # never sent';
+    const omitHeader = d.hasKey ? "" : '        extra_headers={"Authorization": Omit()},\n';
+    return `
+${imports}
 
-API_KEY = ${d.pyAuth}
-
-client = OpenAI(
+${d.pyAuthAssign}client = OpenAI(
     base_url="${d.baseURL}",
-    api_key=API_KEY,
+    ${keyArg}
 )
 
 with open("audio.mp3", "rb") as audio:
     response = client.audio.transcriptions.create(
         model="${d.model}",
         file=audio,
-    )
+${omitHeader}    )
 
 print(response.text)
-`,
+`;
+  },
 
-  typescript: (d) => `
+  typescript: (d) => {
+    const clientAuth = d.hasKey
+      ? "  apiKey,\n"
+      : '  apiKey: "omitted", // never sent\n  defaultHeaders: { Authorization: null },\n';
+    return `
 import { createReadStream } from "node:fs";
 import OpenAI from "openai";
 
-const apiKey = ${d.tsAuth};
-
-const client = new OpenAI({
+${d.tsAuthAssign}const client = new OpenAI({
   baseURL: "${d.baseURL}",
-  apiKey,
-});
+${clientAuth}});
 
 const response = await client.audio.transcriptions.create({
   model: "${d.model}",
@@ -44,5 +50,6 @@ const response = await client.audio.transcriptions.create({
 });
 
 console.log(response.text);
-`,
+`;
+  },
 };

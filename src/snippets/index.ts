@@ -7,10 +7,12 @@ import { align } from "./align.ts";
 import { diar } from "./diar.ts";
 import { diarStream } from "./diar_stream.ts";
 import { enhance } from "./enhance.ts";
+import { ocr } from "./ocr.ts";
 import { soundFX } from "./sound_fx.ts";
 import { speakerEmbed } from "./speaker_embed.ts";
 import { stt } from "./stt.ts";
 import { sttStream } from "./stt_stream.ts";
+import { translate } from "./translate.ts";
 import { tts } from "./tts.ts";
 import { ttsClone } from "./tts_clone.ts";
 import { ttsDialogue } from "./tts_dialogue.ts";
@@ -29,6 +31,8 @@ export const snippets: Record<Capability, SnippetSet> = {
   speaker_embed: speakerEmbed,
   sound_fx: soundFX,
   enhance,
+  ocr,
+  translate,
 };
 
 /**

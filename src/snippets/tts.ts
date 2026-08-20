@@ -1,10 +1,10 @@
 import type { SnippetSet } from "./types.ts";
 
+// See stt.ts for why the keyless variants opt out of the header explicitly.
 export const tts: SnippetSet = {
   curl: (d) => `
-${d.curlPreamble}curl -X POST "${d.endpoint}" \\
-  -H "Authorization: Bearer ${d.curlAuth}" \\
-  -H "Content-Type: application/json" \\
+curl -X POST "${d.endpoint}" \\
+${d.curlAuthHeader}  -H "Content-Type: application/json" \\
   -d '{
     "model": "${d.model}",
     "input": "Hello, this is a speech synthesis sample.",
@@ -13,34 +13,38 @@ ${d.curlPreamble}curl -X POST "${d.endpoint}" \\
   --output speech.wav
 `,
 
-  python: (d) => `
-${d.pyImportOS ? "import os\n\n" : ""}from openai import OpenAI
+  python: (d) => {
+    const imports = d.hasKey ? "from openai import OpenAI" : "from openai import Omit, OpenAI";
+    const keyArg = d.hasKey ? "api_key=API_KEY," : 'api_key="omitted",  # never sent';
+    const omitHeader = d.hasKey ? "" : '    extra_headers={"Authorization": Omit()},\n';
+    return `
+${imports}
 
-API_KEY = ${d.pyAuth}
-
-client = OpenAI(
+${d.pyAuthAssign}client = OpenAI(
     base_url="${d.baseURL}",
-    api_key=API_KEY,
+    ${keyArg}
 )
 
 with client.audio.speech.with_streaming_response.create(
     model="${d.model}",
     input="Hello, this is a speech synthesis sample.",
     voice="serena",
-) as response:
+${omitHeader}) as response:
     response.stream_to_file("speech.wav")
-`,
+`;
+  },
 
-  typescript: (d) => `
+  typescript: (d) => {
+    const clientAuth = d.hasKey
+      ? "  apiKey,\n"
+      : '  apiKey: "omitted", // never sent\n  defaultHeaders: { Authorization: null },\n';
+    return `
 import { writeFile } from "node:fs/promises";
 import OpenAI from "openai";
 
-const apiKey = ${d.tsAuth};
-
-const client = new OpenAI({
+${d.tsAuthAssign}const client = new OpenAI({
   baseURL: "${d.baseURL}",
-  apiKey,
-});
+${clientAuth}});
 
 const response = await client.audio.speech.create({
   model: "${d.model}",
@@ -49,5 +53,6 @@ const response = await client.audio.speech.create({
 });
 
 await writeFile("speech.wav", Buffer.from(await response.arrayBuffer()));
-`,
+`;
+  },
 };

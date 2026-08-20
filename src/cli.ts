@@ -4,7 +4,7 @@
 // the code it prints.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { APIKeyEnvVar, endpoint, generate, type Request } from "./audiogen.ts";
+import { endpoint, generate, type Request } from "./audiogen.ts";
 import { Capabilities, parseCapability, type Capability } from "./capability.ts";
 import { Languages, parseLanguage, type Language } from "./language.ts";
 import { Models, lookupModel, supports } from "./registry.ts";
@@ -33,7 +33,8 @@ Usage:
   -all-models
     \trender every model and every capability (smoke test)
   -api-key string
-    \toptional API key; when omitted snippets read $${APIKeyEnvVar}
+    \toptional API key; when omitted snippets send no Authorization header,
+    \twhich only works from inside Olares
   -capability string
     \tcapability to render; defaults to every capability the model supports
   -lang string

@@ -2,24 +2,24 @@ import type { SnippetSet } from "./types.ts";
 
 export const diarStream: SnippetSet = {
   curl: (d) => `
-${d.curlPreamble}# Send 16 kHz s16le mono PCM frames over the socket, then {"type": "stop"}.
-websocat -H="Authorization: Bearer ${d.curlAuth}" \\
-  "${d.endpoint}?model=${d.model}"
+# Send 16 kHz s16le mono PCM frames over the socket, then {"type": "stop"}.
+websocat ${d.websocatAuthArg}"${d.endpoint}?model=${d.model}"
 `,
 
-  python: (d) => `
+  python: (d) => {
+    const headersAssign = d.hasKey ? `    headers = {"Authorization": f"Bearer {API_KEY}"}\n` : "";
+    const connectArgs = d.hasKey ? "URL, additional_headers=headers" : "URL";
+    return `
 import asyncio
 import json
-${d.pyImportOS ? "import os\n" : ""}
+
 import websockets
 
-API_KEY = ${d.pyAuth}
-URL = "${d.endpoint}?model=${d.model}"
+${d.pyAuthAssign}URL = "${d.endpoint}?model=${d.model}"
 
 
 async def main() -> None:
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    async with websockets.connect(URL, additional_headers=headers) as ws:
+${headersAssign}    async with websockets.connect(${connectArgs}) as ws:
         print(await ws.recv())  # {"type": "ready"}
         await ws.send(json.dumps({"type": "start", "sample_rate": 16000}))
         with open("speech.pcm", "rb") as f:
@@ -31,17 +31,16 @@ async def main() -> None:
 
 
 asyncio.run(main())
-`,
+`;
+  },
 
-  typescript: (d) => `
+  typescript: (d) => {
+    const options = d.hasKey ? `, {\n${d.tsAuthHeaders}}` : "";
+    return `
 import { readFile } from "node:fs/promises";
 import WebSocket from "ws";
 
-const apiKey = ${d.tsAuth};
-
-const ws = new WebSocket("${d.endpoint}?model=${d.model}", {
-  headers: { Authorization: \`Bearer \${apiKey}\` },
-});
+${d.tsAuthAssign}const ws = new WebSocket("${d.endpoint}?model=${d.model}"${options});
 
 ws.on("open", async () => {
   ws.send(JSON.stringify({ type: "start", sample_rate: 16000 }));
@@ -55,5 +54,6 @@ ws.on("open", async () => {
 
 ws.on("message", (data) => console.log(String(data)));
 ws.on("error", (err) => console.error(err));
-`,
+`;
+  },
 };

@@ -1,17 +1,11 @@
 // Generates ready-to-run client snippets (curl, Python, TypeScript) for every
-// audio capability exposed by the Olares router.
+// capability exposed by the Olares router.
 import { type Capability, endpointSpec } from "./capability.ts";
 import { LangCurl, LangPython, LangTypeScript, Languages, type Language } from "./language.ts";
-import { CapAlign, CapDiar, CapDiarStream, CapEnhance, CapSTT, CapSTTStream, CapSoundFX, CapSpeakerEmbed, CapTTS, CapTTSClone, CapTTSDialogue, CapVAD } from "./capability.ts";
+import { CapAlign, CapDiar, CapDiarStream, CapEnhance, CapOCR, CapSTT, CapSTTStream, CapSoundFX, CapSpeakerEmbed, CapTTS, CapTTSClone, CapTTSDialogue, CapTranslate, CapVAD } from "./capability.ts";
 import { lookupModel } from "./registry.ts";
 import { renderSnippet } from "./snippets/index.ts";
 import type { SnippetData } from "./snippets/types.ts";
-
-/**
- * APIKeyEnvVar is the environment variable the generated snippets read from
- * when the caller does not supply a literal key.
- */
-export const APIKeyEnvVar = "OLARES_API_KEY";
 
 /**
  * Request is the input to every generator: where to call, which model to use,
@@ -23,8 +17,10 @@ export interface Request {
   /** Model is the fully qualified model name, e.g. "Olares/openai/whisper-large-v3". */
   Model?: string;
   /**
-   * APIKey is optional. When empty the snippet reads OLARES_API_KEY from the
-   * environment instead of hard-coding a secret.
+   * APIKey is optional. When empty the snippet sends no Authorization header
+   * at all, which is how callers inside Olares reach the router: the gateway
+   * identifies the app with x-caller-appid instead. Such a snippet is rejected
+   * from outside the cluster.
    */
   APIKey?: string;
   /** Lang selects the output language, and defaults to curl. */
@@ -76,6 +72,44 @@ function toWebSocket(httpURL: string): string {
   return "ws://" + httpURL.slice("http://".length);
 }
 
+/** AuthFragments is the auth half of SnippetData: whole lines, or nothing. */
+type AuthFragments = Pick<
+  SnippetData,
+  | "hasKey"
+  | "curlAuthHeader"
+  | "websocatAuthArg"
+  | "pyAuthAssign"
+  | "pyAuthHeader"
+  | "tsAuthAssign"
+  | "tsAuthHeaders"
+  | "tsAuthHeaderEntry"
+>;
+
+const noAuth: AuthFragments = {
+  hasKey: false,
+  curlAuthHeader: "",
+  websocatAuthArg: "",
+  pyAuthAssign: "",
+  pyAuthHeader: "",
+  tsAuthAssign: "",
+  tsAuthHeaders: "",
+  tsAuthHeaderEntry: "",
+};
+
+function authFragments(key: string): AuthFragments {
+  if (key === "") return noAuth;
+  return {
+    hasKey: true,
+    curlAuthHeader: `  -H "Authorization: Bearer ${key}" \\\n`,
+    websocatAuthArg: `-H="Authorization: Bearer ${key}" \\\n  `,
+    pyAuthAssign: `API_KEY = ${pyQuote(key)}\n\n`,
+    pyAuthHeader: `    headers={"Authorization": f"Bearer {API_KEY}"},\n`,
+    tsAuthAssign: `const apiKey = ${tsQuote(key)};\n\n`,
+    tsAuthHeaders: "  headers: { Authorization: `Bearer ${apiKey}` },\n",
+    tsAuthHeaderEntry: "    Authorization: `Bearer ${apiKey}`,\n",
+  };
+}
+
 function buildSnippetData(capability: Capability, req: Request): SnippetData {
   const spec = endpointSpec(capability);
   if (!spec) throw new Error(`no endpoint registered for capability ${JSON.stringify(capability)}`);
@@ -84,26 +118,13 @@ function buildSnippetData(capability: Capability, req: Request): SnippetData {
   if (model === "") throw new Error("model is required");
 
   const full = spec.webSocket ? toWebSocket(base + spec.path) : base + spec.path;
-  const key = (req.APIKey ?? "").trim();
 
-  const auth: Pick<SnippetData, "curlAuth" | "curlPreamble" | "pyAuth" | "pyImportOS" | "tsAuth"> =
-    key !== ""
-      ? {
-          curlAuth: key,
-          curlPreamble: "",
-          pyAuth: pyQuote(key),
-          pyImportOS: false,
-          tsAuth: tsQuote(key),
-        }
-      : {
-          curlAuth: "$" + APIKeyEnvVar,
-          curlPreamble: `export ${APIKeyEnvVar}="sk-your-api-key"\n\n`,
-          pyAuth: `os.environ[${pyQuote(APIKeyEnvVar)}]`,
-          pyImportOS: true,
-          tsAuth: `process.env.${APIKeyEnvVar}!`,
-        };
-
-  return { model, baseURL: base, endpoint: full, ...auth };
+  return {
+    model,
+    baseURL: base,
+    endpoint: full,
+    ...authFragments((req.APIKey ?? "").trim()),
+  };
 }
 
 /**
@@ -200,6 +221,12 @@ export function generateSoundFX(req: Request): string { return generate(CapSound
 /** generateEnhance emits a speech-enhancement call that writes cleaned audio. */
 export function generateEnhance(req: Request): string { return generate(CapEnhance, req); }
 
+/** generateOCR emits an OCR submission that uploads an image or a PDF. */
+export function generateOCR(req: Request): string { return generate(CapOCR, req); }
+
+/** generateTranslate emits a text translation call between two languages. */
+export function generateTranslate(req: Request): string { return generate(CapTranslate, req); }
+
 /**
  * Generators indexes the per-capability functions so callers can dispatch on a
  * capability value without a switch.
@@ -217,6 +244,8 @@ export const Generators: ReadonlyMap<Capability, (req: Request) => string> = new
   [CapSpeakerEmbed, generateSpeakerEmbed],
   [CapSoundFX, generateSoundFX],
   [CapEnhance, generateEnhance],
+  [CapOCR, generateOCR],
+  [CapTranslate, generateTranslate],
 ]);
 
 /** generatorFor returns the generator function registered for a capability. */

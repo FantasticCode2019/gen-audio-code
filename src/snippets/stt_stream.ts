@@ -2,24 +2,25 @@ import type { SnippetSet } from "./types.ts";
 
 export const sttStream: SnippetSet = {
   curl: (d) => `
-${d.curlPreamble}# Protocol:
+# Protocol:
 #   1. The server greets with {"type": "ready"}.
 #   2. Send the start message: {"type": "start"}
 #   3. Stream PCM binary frames: 16-bit little-endian, mono, 16 kHz.
 #   4. Finish with {"type": "stop"} (done / finish are accepted too).
 # The server replies with ready / error / closed events plus transcript messages.
-websocat -H="Authorization: Bearer ${d.curlAuth}" \\
-  "${d.endpoint}?model=${d.model}"
+websocat ${d.websocatAuthArg}"${d.endpoint}?model=${d.model}"
 `,
 
-  python: (d) => `
+  python: (d) => {
+    const headersAssign = d.hasKey ? `    headers = {"Authorization": f"Bearer {API_KEY}"}\n` : "";
+    const connectArgs = d.hasKey ? "URL, additional_headers=headers" : "URL";
+    return `
 import asyncio
 import json
-${d.pyImportOS ? "import os\n" : ""}
+
 import websockets
 
-API_KEY = ${d.pyAuth}
-URL = "${d.endpoint}?model=${d.model}"
+${d.pyAuthAssign}URL = "${d.endpoint}?model=${d.model}"
 
 SAMPLE_RATE = 16000  # the rate the server assumes when start omits it
 # 16-bit little-endian mono is 2 bytes per sample, so this is a 100 ms frame.
@@ -27,8 +28,7 @@ FRAME_BYTES = SAMPLE_RATE * 2 // 10
 
 
 async def main() -> None:
-    headers = {"Authorization": f"Bearer {API_KEY}"}
-    async with websockets.connect(URL, additional_headers=headers) as ws:
+${headersAssign}    async with websockets.connect(${connectArgs}) as ws:
         ready = json.loads(await ws.recv())
         if ready.get("type") != "ready":
             raise RuntimeError(f"expected ready, got {ready}")
@@ -51,21 +51,20 @@ async def main() -> None:
 
 
 asyncio.run(main())
-`,
+`;
+  },
 
-  typescript: (d) => `
+  typescript: (d) => {
+    const options = d.hasKey ? `, {\n${d.tsAuthHeaders}}` : "";
+    return `
 import { readFile } from "node:fs/promises";
 import WebSocket from "ws";
 
-const apiKey = ${d.tsAuth};
-
-const SAMPLE_RATE = 16000; // the rate the server assumes when start omits it
+${d.tsAuthAssign}const SAMPLE_RATE = 16000; // the rate the server assumes when start omits it
 // 16-bit little-endian mono is 2 bytes per sample, so this is a 100 ms frame.
 const FRAME_BYTES = (SAMPLE_RATE * 2) / 10;
 
-const ws = new WebSocket("${d.endpoint}?model=${d.model}", {
-  headers: { Authorization: \`Bearer \${apiKey}\` },
-});
+const ws = new WebSocket("${d.endpoint}?model=${d.model}"${options});
 
 async function stream(): Promise<void> {
   ws.send(JSON.stringify({ type: "start" }));
@@ -94,5 +93,6 @@ ws.on("message", (data) => {
 });
 
 ws.on("error", (err) => console.error(err));
-`,
+`;
+  },
 };
